@@ -56,7 +56,7 @@ Write-Host "Searching for app registration for application named '$resourceAppli
 $appSP = Get-AzureADServicePrincipal -SearchString $resourceApplicationName | Where-Object { $_.ServicePrincipalType -eq "Application" }
 
 if ($appSP.count -ne 1) {
-    $count = $appSp.count
+    $count = $appSP.count
     throw "Could not find application service principal. Number of SP found: $count"
 }
 
@@ -65,11 +65,24 @@ Write-Host "Found app service id $resourceId"
 
 # get msi service principal registration
 Write-Host "Searching for service principal registration for msi user named '$msiServicePrincipalName'"
-$msiSP = Get-AzureADServicePrincipal -SearchString $msiServicePrincipalName | Where-Object { $_.ServicePrincipalType -eq "ManagedIdentity" }
 
-if ($msiSp.count -ne 1) {
+$msiSP = Get-AzureADServicePrincipal -SearchString $msiServicePrincipalName
+
+if ($msiSP.count -ne 1) { 
+    # First filter to remove Application registrations if the msiSP contains more then one element
+    # If the msiSP contains only one, then use that, even if it is a Application
+    # this is to prevent errors when using a local msi user which is a Application registration
+
+    Write-Host "Found more then one ServicePrincipal, trying to filter to managed identity";
+    $msiSP = $msiSP | Where-Object { $_.ServicePrincipalType -eq "ManagedIdentity" } 
+}
+else {
+    Write-Host "Found only one service principal, using the service principal" $msiSP[0].DisplayName "of type" $msiSP[0].ServicePrincipalType
+}
+
+if ($msiSP.count -ne 1) {
     # fullname check
-    write-host $msiSp.count "msi principals found. Trying fullname search."
+    write-host $msiSP.count "msi principals found. Trying fullname search."
 
     $msiF = $msiSP | Where-Object { $_.DisplayName -eq $msiServicePrincipalName }
 
@@ -91,7 +104,13 @@ try {
     New-AzureADServiceAppRoleAssignment -ObjectId $msiPrincipalId -PrincipalId $msiPrincipalId -ResourceId $resourceId -Id $roleId
 }
 catch {
-    # ignore
+    if ($_.Exception.Message -like "*Code: Authorization_RequestDenied*"){
+        Write-Host ""
+        Write-Host "It looks like the user is not a owner of the resource"
+        Write-Host ""
+        throw
+    }
+    # ignore other exceptions
 }
 
 $assignments = Get-AzureADServiceAppRoleAssignedTo -ObjectId $msiPrincipalId 

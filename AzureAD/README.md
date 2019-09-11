@@ -26,9 +26,9 @@ Now you should be able to assign roles. For example, to give the orders API perm
 .\AssignRole.ps1 -msi "my-orders-api" -resource "my-customer-api" -role "customers.read"
 ```
 
-The `msi` is the managed identity of the client, while the `resource` is the application you want to communicate with.
+The `msi` is the managed identity of the client or a service principle. The script will always prefer an Azure AD Managed Identity over a Service Principle. This script can also be used in conjunction with the Local Msi script, for providing roles for the Service Principle representing the Local MSI user. The `resource` is the application you want to communicate with.
 
-> **NOTE**: You need be owner of the `resource` application in Azure AD, otherwise the role assignment will not have any effect and you will not get an error message!
+> **NOTE**: You need be owner of the `resource` application in Azure AD, otherwise the role assignment will not have any effect.
 > To verify that you are owner of the resource, navigate to Azure Active Directory -> Enterprise applications -> filter applications by name -> click on the application -> Owners
 
 If your application needs many permissions and maybe even in multiple environments, we recommend to make a powershell script. The script can also be included in your repository. This makes it easier to do code reviews of required roles and also automate role assignments in the deploy pipeline.
